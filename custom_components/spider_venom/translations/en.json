@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Spider Grills Venom",
+        "menu_options": {
+          "account": "Spider Grills account",
+          "manual": "Manual Thing Name"
+        }
+      },
+      "account": {
+        "title": "Spider Grills account",
+        "description": "Log in to discover devices. The password and token are not stored.",
+        "data": {
+          "email": "Email",
+          "password": "Password",
+          "scan_interval": "Scan interval"
+        }
+      },
+      "select_device": {
+        "title": "Select Venom",
+        "description": "Choose the Spider Grills device to add.",
+        "data": {
+          "thing_name": "Device"
+        }
+      },
+      "manual": {
+        "title": "Manual setup",
+        "description": "Connect to a Spider Grills Venom through AWS IoT Device Shadow.",
+        "data": {
+          "thing_name": "Thing name",
+          "endpoint": "AWS IoT endpoint",
+          "identity_pool_id": "Cognito identity pool ID",
+          "region": "AWS region",
+          "scan_interval": "Scan interval"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to fetch the Venom shadow with these settings.",
+      "no_devices": "No supported Spider Grills devices were found on this account.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This Venom is already configured."
+    }
+  }
+}

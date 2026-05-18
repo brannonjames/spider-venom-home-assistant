@@ -1,0 +1,11 @@
+{
+  "domain": "spider_venom",
+  "name": "Spider Grills Venom",
+  "codeowners": ["@brannonjames"],
+  "config_flow": true,
+  "documentation": "https://github.com/brannonjames/spider-venom-home-assistant",
+  "issue_tracker": "https://github.com/brannonjames/spider-venom-home-assistant/issues",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}

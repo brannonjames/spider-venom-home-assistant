@@ -1,0 +1,21 @@
+set_target_temperature:
+  name: Set target temperature
+  description: Set the Spider Grills Venom target cooking temperature.
+  fields:
+    temperature:
+      name: Temperature
+      description: Target temperature in Fahrenheit.
+      required: true
+      selector:
+        number:
+          min: 150
+          max: 550
+          step: 1
+          mode: box
+          unit_of_measurement: "°F"
+    thing_name:
+      name: Thing name
+      description: AWS IoT thing name. Required only when multiple Venoms are configured.
+      required: false
+      selector:
+        text:
