@@ -72,3 +72,5 @@ data:
 ## Notes
 
 This version does not include timer controls. It also does not expose a vent-position entity because the observed shadow state does not include top or bottom vent opening fields.
+
+This integration was developed with assistance from AI tools. Review the code and behavior before relying on it for unattended grill control.
