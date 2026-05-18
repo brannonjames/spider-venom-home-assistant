@@ -1,6 +1,8 @@
 # Spider Grills Venom Home Assistant Integration
 
-Read-only Home Assistant custom integration for Spider Grills Venom using AWS IoT Device Shadow.
+Home Assistant custom integration for Spider Grills Venom using AWS IoT Device Shadow.
+
+It exposes Venom temperature/status entities and selected controls for target temperature, power, engaged, paused, and high-temperature mode.
 
 ## Install
 
