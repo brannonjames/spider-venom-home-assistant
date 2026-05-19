@@ -38,7 +38,7 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle the initial step."""
-        return self.async_show_menu(step_id="user", menu_options=["account", "manual"])
+        return await self.async_step_account(user_input)
 
     async def async_step_account(
         self, user_input: dict[str, Any] | None = None
@@ -119,53 +119,6 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="select_device",
             data_schema=vol.Schema({vol.Required(CONF_THING_NAME): vol.In(device_options)}),
-            errors=errors,
-        )
-
-    async def async_step_manual(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
-        """Configure a Spider Grills Venom manually."""
-        errors: dict[str, str] = {}
-
-        if user_input is not None:
-            thing_name = user_input[CONF_THING_NAME].strip()
-            endpoint = user_input[CONF_ENDPOINT].strip()
-            identity_pool_id = user_input[CONF_IDENTITY_POOL_ID].strip()
-            region = user_input[CONF_REGION].strip()
-
-            try:
-                return await self._async_create_validated_entry(
-                    thing_name=thing_name,
-                    endpoint=endpoint,
-                    identity_pool_id=identity_pool_id,
-                    region=region,
-                    scan_interval=user_input[CONF_SCAN_INTERVAL],
-                    title="Spider Grills Venom",
-                )
-            except SpiderVenomApiError as err:
-                _LOGGER.warning("Unable to validate Spider Venom config: %s", err)
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected error validating Spider Venom config")
-                errors["base"] = "unknown"
-
-        return self.async_show_form(
-            step_id="manual",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_THING_NAME): str,
-                    vol.Optional(CONF_ENDPOINT, default=DEFAULT_ENDPOINT): str,
-                    vol.Optional(
-                        CONF_IDENTITY_POOL_ID, default=DEFAULT_IDENTITY_POOL_ID
-                    ): str,
-                    vol.Optional(CONF_REGION, default=DEFAULT_REGION): str,
-                    vol.Optional(
-                        CONF_SCAN_INTERVAL,
-                        default=int(DEFAULT_SCAN_INTERVAL.total_seconds()),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
-                }
-            ),
             errors=errors,
         )
 

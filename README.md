@@ -9,7 +9,6 @@ The integration does not store your Spider Grills password or access token after
 ## Features
 
 - Account-based setup with device discovery.
-- Manual setup by AWS IoT Thing Name.
 - Temperature, probe, Wi-Fi, firmware, and status entities.
 - Power, engaged, paused, and high-temperature mode controls.
 - Target temperature number entity and service.
@@ -38,9 +37,9 @@ Restart Home Assistant, then add `Spider Grills Venom` from Settings -> Devices 
 
 ## Setup
 
-Use the account setup flow if you have a Spider Grills email/password login. The integration uses it once to discover your devices.
+Use the account setup flow with a Spider Grills email/password login. The integration uses it once to discover your devices.
 
-If you use Apple sign-in or already know the device details, use manual setup instead. The only required manual value in normal use is the AWS IoT Thing Name.
+Apple sign-in is not supported yet. Manual Thing Name setup was removed because there is no reliable, user-facing way to obtain the Thing Name and AWS IoT endpoint.
 
 ## Entities
 
@@ -73,4 +72,4 @@ data:
 
 This version does not include timer controls. It also does not expose a vent-position entity because the observed shadow state does not include top or bottom vent opening fields.
 
-This integration was developed with assistance from AI tools. Review the code and behavior before relying on it for unattended grill control.
+This integration was developed with assistance from AI tools.
