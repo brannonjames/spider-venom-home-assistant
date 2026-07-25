@@ -7,11 +7,24 @@ from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
 import json
+import logging
 import socket
 from typing import Any
 from urllib.parse import quote
 
 from aiohttp import ClientConnectorError, ClientError, ClientSession
+
+_LOGGER = logging.getLogger(__name__)
+_REDACTED_KEYS = {
+    "accesskeyid",
+    "accesstoken",
+    "authorization",
+    "idtoken",
+    "password",
+    "refreshtoken",
+    "secretkey",
+    "sessiontoken",
+}
 
 
 class SpiderVenomApiError(Exception):
@@ -89,6 +102,7 @@ class SpiderVenomClient:
                 method, url, headers=headers, data=payload or None
             ) as response:
                 body = await response.text()
+                _log_response_body(f"IoT shadow {method}", response.status, body)
         except ClientConnectorError as err:
             raise SpiderVenomApiError(
                 f"IoT shadow request could not connect to {self._endpoint}: {err}"
@@ -158,6 +172,7 @@ class SpiderVenomClient:
         try:
             async with self._session.post(url, headers=headers, json=payload) as response:
                 body = await response.text()
+                _log_response_body(f"Cognito {target}", response.status, body)
         except ClientConnectorError as err:
             raise SpiderVenomApiError(
                 f"Cognito {target} could not connect in region {self._region}: {err}"
@@ -297,6 +312,7 @@ class SpiderGrillsAccountClient:
                 json=json_payload,
             ) as response:
                 body = await response.text()
+                _log_response_body(f"Spider Grills API {method} {path}", response.status, body)
         except ClientConnectorError as err:
             raise SpiderVenomApiError(f"Spider Grills API could not connect: {err}") from err
         except (TimeoutError, socket.gaierror) as err:
@@ -313,3 +329,39 @@ class SpiderGrillsAccountClient:
             raise SpiderVenomApiError(f"Spider Grills API returned HTTP {response.status}")
 
         return parsed
+
+
+def _log_response_body(label: str, status: int, body: str) -> None:
+    """Log response bodies for local API discovery without leaking auth secrets."""
+    if not _LOGGER.isEnabledFor(logging.DEBUG):
+        return
+
+    _LOGGER.debug("%s returned HTTP %s body: %s", label, status, _redacted_body(body))
+
+
+def _redacted_body(body: str) -> str:
+    if not body:
+        return ""
+
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return body
+
+    return json.dumps(_redact_value(parsed), sort_keys=True)
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: "***REDACTED***" if _is_sensitive_key(key) else _redact_value(child)
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_value(child) for child in value]
+    return value
+
+
+def _is_sensitive_key(key: str) -> bool:
+    normalized = key.lower()
+    return normalized in _REDACTED_KEYS or normalized.endswith("token")
