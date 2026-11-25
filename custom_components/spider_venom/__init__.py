@@ -57,7 +57,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        coordinator: SpiderVenomDataUpdateCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        coordinator.async_clear_optimistic_timers()
         if not hass.data[DOMAIN]:
             hass.services.async_remove(DOMAIN, SERVICE_SET_TARGET_TEMPERATURE)
     return unloaded
@@ -72,6 +73,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
         coordinators: dict[str, SpiderVenomDataUpdateCoordinator] = hass.data.get(DOMAIN, {})
         thing_name = call.data.get(CONF_THING_NAME)
         temperature = call.data[ATTR_TEMPERATURE]
+
+        if not coordinators:
+            raise HomeAssistantError("No Spider Grills Venom devices are configured")
 
         if thing_name is not None:
             coordinator = next(
@@ -94,6 +98,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         except SpiderVenomApiError as err:
             raise HomeAssistantError(f"Unable to set Venom target temperature: {err}") from err
 
+        coordinator.set_optimistic_value(("heat", "t2", "trgt"), temperature)
         await coordinator.async_request_refresh()
 
     hass.services.async_register(

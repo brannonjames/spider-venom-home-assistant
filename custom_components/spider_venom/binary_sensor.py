@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import SpiderVenomDataUpdateCoordinator
-from .entity import SpiderVenomEntity, value_at_path
+from .entity import SpiderVenomEntity, path_value_fn
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -27,60 +27,56 @@ class SpiderVenomBinarySensorDescription(BinarySensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
 
 
-def _path(path: tuple[str, ...]) -> Callable[[dict[str, Any]], Any]:
-    return lambda reported: value_at_path(reported, path)
-
-
 BINARY_SENSORS: tuple[SpiderVenomBinarySensorDescription, ...] = (
     SpiderVenomBinarySensorDescription(
         key="power",
         name="Power",
         device_class=BinarySensorDeviceClass.POWER,
-        value_fn=_path(("pwrOn",)),
+        value_fn=path_value_fn(("pwrOn",)),
     ),
     SpiderVenomBinarySensorDescription(
         key="engaged",
         name="Engaged",
-        value_fn=_path(("engaged",)),
+        value_fn=path_value_fn(("engaged",)),
     ),
     SpiderVenomBinarySensorDescription(
         key="paused",
         name="Paused",
-        value_fn=_path(("paused",)),
+        value_fn=path_value_fn(("paused",)),
     ),
     SpiderVenomBinarySensorDescription(
         key="door",
         name="Door",
         device_class=BinarySensorDeviceClass.DOOR,
-        value_fn=_path(("doorOpn",)),
+        value_fn=path_value_fn(("doorOpn",)),
     ),
     SpiderVenomBinarySensorDescription(
         key="heating",
         name="Heating",
         device_class=BinarySensorDeviceClass.HEAT,
-        value_fn=_path(("heat", "t2", "heating")),
+        value_fn=path_value_fn(("heat", "t2", "heating")),
     ),
     SpiderVenomBinarySensorDescription(
         key="fahrenheit_mode",
         name="Fahrenheit mode",
-        value_fn=_path(("fah",)),
+        value_fn=path_value_fn(("fah",)),
     ),
     SpiderVenomBinarySensorDescription(
         key="high_temp_enabled",
         name="High temperature mode",
-        value_fn=_path(("heat", "t2", "highTemp_enable")),
+        value_fn=path_value_fn(("heat", "t2", "highTemp_enable")),
     ),
     SpiderVenomBinarySensorDescription(
         key="high_temp_notification",
         name="High temperature notification",
         device_class=BinarySensorDeviceClass.PROBLEM,
-        value_fn=_path(("notifications", "high_temp")),
+        value_fn=path_value_fn(("notifications", "high_temp")),
     ),
     SpiderVenomBinarySensorDescription(
         key="low_temp_notification",
         name="Low temperature notification",
         device_class=BinarySensorDeviceClass.PROBLEM,
-        value_fn=_path(("notifications", "low_temp")),
+        value_fn=path_value_fn(("notifications", "low_temp")),
     ),
 )
 

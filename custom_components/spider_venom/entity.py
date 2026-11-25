@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_THING_NAME, DOMAIN
@@ -32,10 +33,16 @@ class SpiderVenomEntity(CoordinatorEntity[SpiderVenomDataUpdateCoordinator]):
     def device_info(self) -> DeviceInfo:
         """Return device registry information."""
         reported = self.coordinator.reported
+        connections: set[tuple[str, str]] = set()
+        mac = reported.get("mac")
+        if isinstance(mac, str) and mac:
+            connections.add((CONNECTION_NETWORK_MAC, mac))
+
         return DeviceInfo(
             identifiers={(DOMAIN, self._thing_name)},
+            connections=connections,
             manufacturer="Spider Grills",
-            model=str(reported.get("model", "Venom")),
+            model=str(reported.get("model") or "Venom"),
             name="Venom",
             sw_version=str(reported.get("vers")) if reported.get("vers") else None,
         )
@@ -49,3 +56,8 @@ def value_at_path(data: dict[str, Any], path: tuple[str, ...]) -> Any:
             return None
         value = value.get(key)
     return value
+
+
+def path_value_fn(path: tuple[str, ...]) -> Callable[[dict[str, Any]], Any]:
+    """Return a function that extracts a nested value at path."""
+    return lambda reported: value_at_path(reported, path)
