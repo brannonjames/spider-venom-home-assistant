@@ -8,14 +8,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity, SwitchEntityDescription
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import SpiderVenomApiError
-from .const import DOMAIN
-from .coordinator import SpiderVenomDataUpdateCoordinator
+from .coordinator import SpiderVenomConfigEntry, SpiderVenomDataUpdateCoordinator
 from .entity import SpiderVenomEntity, value_at_path
 
 
@@ -65,11 +63,11 @@ SWITCHES: tuple[SpiderVenomSwitchDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SpiderVenomConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Spider Grills Venom switches."""
-    coordinator: SpiderVenomDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities(
         SpiderVenomSwitch(coordinator, entry, description) for description in SWITCHES
     )
@@ -84,7 +82,7 @@ class SpiderVenomSwitch(SpiderVenomEntity, SwitchEntity):
     def __init__(
         self,
         coordinator: SpiderVenomDataUpdateCoordinator,
-        entry: ConfigEntry,
+        entry: SpiderVenomConfigEntry,
         description: SpiderVenomSwitchDescription,
     ) -> None:
         """Initialize the switch."""

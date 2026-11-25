@@ -47,14 +47,14 @@ Sensors include current temperature, target temperature, probe temperatures, hea
 
 Binary sensors include power, engaged, paused, door, heating, Fahrenheit mode, high temperature mode, and temperature notifications.
 
-Controls include target temperature, power, engaged, paused, and high temperature mode.
+Controls include main target temperature, Probe 1 and Probe 2 target temperatures, power, engaged, paused, and high temperature mode.
 
 ## Service
 
 The integration also exposes:
 
 ```yaml
-service: spider_venom.set_target_temperature
+action: spider_venom.set_target_temperature
 data:
   temperature: 300
 ```
@@ -62,7 +62,7 @@ data:
 If multiple Venoms are configured, include `thing_name`.
 
 ```yaml
-service: spider_venom.set_target_temperature
+action: spider_venom.set_target_temperature
 data:
   thing_name: your_thing_name
   temperature: 300

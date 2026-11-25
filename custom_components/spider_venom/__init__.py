@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -22,7 +22,7 @@ from .const import (
     PLATFORMS,
     SERVICE_SET_TARGET_TEMPERATURE,
 )
-from .coordinator import SpiderVenomDataUpdateCoordinator
+from .coordinator import SpiderVenomConfigEntry, SpiderVenomDataUpdateCoordinator
 
 SET_TARGET_TEMPERATURE_SCHEMA = vol.Schema(
     {
@@ -35,7 +35,7 @@ SET_TARGET_TEMPERATURE_SCHEMA = vol.Schema(
 )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: SpiderVenomConfigEntry) -> bool:
     """Set up Spider Grills Venom from a config entry."""
     client = SpiderVenomClient(
         session=async_get_clientsession(hass),
@@ -47,20 +47,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = SpiderVenomDataUpdateCoordinator(hass, client, entry)
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     _async_register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: SpiderVenomConfigEntry) -> bool:
     """Unload a config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id)
-        if not hass.data[DOMAIN]:
+        other_loaded = [
+            loaded_entry
+            for loaded_entry in hass.config_entries.async_entries(DOMAIN)
+            if loaded_entry.entry_id != entry.entry_id
+            and loaded_entry.state is ConfigEntryState.LOADED
+        ]
+        if not other_loaded:
             hass.services.async_remove(DOMAIN, SERVICE_SET_TARGET_TEMPERATURE)
     return unloaded
+
+
+async def _async_reload_entry(hass: HomeAssistant, entry: SpiderVenomConfigEntry) -> None:
+    """Reload config entry when options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 def _async_register_services(hass: HomeAssistant) -> None:
@@ -69,26 +80,34 @@ def _async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def async_set_target_temperature(call: ServiceCall) -> None:
-        coordinators: dict[str, SpiderVenomDataUpdateCoordinator] = hass.data.get(DOMAIN, {})
+        entries = [
+            entry
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.state is ConfigEntryState.LOADED
+        ]
         thing_name = call.data.get(CONF_THING_NAME)
         temperature = call.data[ATTR_TEMPERATURE]
 
+        if not entries:
+            raise HomeAssistantError("No Spider Grills Venom devices are configured")
+
         if thing_name is not None:
-            coordinator = next(
+            target_entry = next(
                 (
                     candidate
-                    for candidate in coordinators.values()
-                    if candidate.entry.data[CONF_THING_NAME] == thing_name.strip()
+                    for candidate in entries
+                    if candidate.data[CONF_THING_NAME] == thing_name.strip()
                 ),
                 None,
             )
-            if coordinator is None:
+            if target_entry is None:
                 raise HomeAssistantError(f"No configured Venom thing named {thing_name}")
-        elif len(coordinators) == 1:
-            coordinator = next(iter(coordinators.values()))
+        elif len(entries) == 1:
+            target_entry = entries[0]
         else:
             raise HomeAssistantError("thing_name is required when multiple Venoms are configured")
 
+        coordinator: SpiderVenomDataUpdateCoordinator = target_entry.runtime_data
         try:
             await coordinator.client.async_set_target_temperature(temperature)
         except SpiderVenomApiError as err:

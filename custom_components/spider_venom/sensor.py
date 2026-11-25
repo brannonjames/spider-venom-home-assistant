@@ -7,15 +7,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription, SensorStateClass
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfTemperature
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTemperature
 from homeassistant.const import SIGNAL_STRENGTH_DECIBELS_MILLIWATT as DBM
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import SpiderVenomDataUpdateCoordinator
+from .coordinator import SpiderVenomConfigEntry, SpiderVenomDataUpdateCoordinator
 from .entity import SpiderVenomEntity, value_at_path
 
 
@@ -24,6 +27,7 @@ class SpiderVenomSensorDescription(SensorEntityDescription):
     """Description of a Spider Grills Venom sensor."""
 
     value_fn: Callable[[dict[str, Any]], Any]
+    use_root: bool = False
 
 
 def _path(path: tuple[str, ...]) -> Callable[[dict[str, Any]], Any]:
@@ -51,16 +55,19 @@ SENSORS: tuple[SpiderVenomSensorDescription, ...] = (
     SpiderVenomSensorDescription(
         key="model",
         name="Model",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("model",)),
     ),
     SpiderVenomSensorDescription(
         key="firmware_version",
         name="Firmware version",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("vers",)),
     ),
     SpiderVenomSensorDescription(
         key="mac_address",
         name="MAC address",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("mac",)),
     ),
     SpiderVenomSensorDescription(
@@ -84,7 +91,6 @@ SENSORS: tuple[SpiderVenomSensorDescription, ...] = (
         name="Minimum target temperature",
         native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
         device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
         value_fn=_path(("heat", "t2", "min")),
     ),
     SpiderVenomSensorDescription(
@@ -92,7 +98,6 @@ SENSORS: tuple[SpiderVenomSensorDescription, ...] = (
         name="Maximum target temperature",
         native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
         device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
         value_fn=_path(("heat", "t2", "max")),
     ),
     SpiderVenomSensorDescription(
@@ -113,7 +118,6 @@ SENSORS: tuple[SpiderVenomSensorDescription, ...] = (
         name="High temperature notification limit",
         native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
         device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
         value_fn=_path(("heat", "t2", "high_limit")),
     ),
     SpiderVenomSensorDescription(
@@ -121,7 +125,6 @@ SENSORS: tuple[SpiderVenomSensorDescription, ...] = (
         name="Low temperature notification limit",
         native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
         device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
         value_fn=_path(("heat", "t2", "low_limit")),
     ),
     SpiderVenomSensorDescription(
@@ -130,32 +133,46 @@ SENSORS: tuple[SpiderVenomSensorDescription, ...] = (
         native_unit_of_measurement=DBM,
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("RSSI",)),
     ),
     SpiderVenomSensorDescription(
         key="ssid",
         name="Wi-Fi SSID",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("ssid",)),
     ),
     SpiderVenomSensorDescription(
         key="bssid",
         name="Wi-Fi BSSID",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("bssid",)),
     ),
     SpiderVenomSensorDescription(
         key="update_flag",
         name="Update flag",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("update",)),
     ),
     SpiderVenomSensorDescription(
         key="trigger_flag",
         name="Trigger flag",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_path(("trigger",)),
     ),
     SpiderVenomSensorDescription(
         key="errors",
         name="Errors",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_errors,
+    ),
+    SpiderVenomSensorDescription(
+        key="shadow_last_updated",
+        name="Shadow last updated",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        use_root=True,
+        value_fn=_timestamp(("timestamp",)),
     ),
     SpiderVenomSensorDescription(
         key="probe_1_temp",
@@ -194,11 +211,11 @@ SENSORS: tuple[SpiderVenomSensorDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SpiderVenomConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Spider Grills Venom sensors."""
-    coordinator: SpiderVenomDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities(SpiderVenomSensor(coordinator, entry, description) for description in SENSORS)
 
 
@@ -210,7 +227,7 @@ class SpiderVenomSensor(SpiderVenomEntity, SensorEntity):
     def __init__(
         self,
         coordinator: SpiderVenomDataUpdateCoordinator,
-        entry: ConfigEntry,
+        entry: SpiderVenomConfigEntry,
         description: SpiderVenomSensorDescription,
     ) -> None:
         """Initialize the sensor."""
@@ -220,4 +237,9 @@ class SpiderVenomSensor(SpiderVenomEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         """Return the sensor value."""
-        return self.entity_description.value_fn(self.coordinator.reported)
+        source = (
+            (self.coordinator.data or {})
+            if self.entity_description.use_root
+            else self.coordinator.reported
+        )
+        return self.entity_description.value_fn(source)

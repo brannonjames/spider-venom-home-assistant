@@ -26,5 +26,15 @@
     "abort": {
       "already_configured": "This Venom is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Spider Grills Venom options",
+        "data": {
+          "scan_interval": "Scan interval"
+        }
+      }
+    }
   }
 }

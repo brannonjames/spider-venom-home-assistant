@@ -9,6 +9,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, CONF_SCAN_INTERVAL
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import SpiderGrillsAccountClient, SpiderVenomApiError, SpiderVenomClient
@@ -33,6 +34,14 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     _discovered_devices: dict[str, dict[str, Any]]
     _scan_interval: int
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> SpiderVenomOptionsFlow:
+        """Return the options flow."""
+        return SpiderVenomOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -171,3 +180,33 @@ def _device_label(device: dict[str, Any], thing_name: str) -> str:
         if isinstance(value, str) and value:
             return f"{value} ({thing_name})"
     return thing_name
+
+
+class SpiderVenomOptionsFlow(config_entries.OptionsFlow):
+    """Handle Spider Grills Venom options."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Manage integration options."""
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+
+        current_interval = self.config_entry.options.get(
+            CONF_SCAN_INTERVAL,
+            self.config_entry.data.get(
+                CONF_SCAN_INTERVAL,
+                int(DEFAULT_SCAN_INTERVAL.total_seconds()),
+            ),
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL,
+                        default=current_interval,
+                    ): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
+                }
+            ),
+        )
