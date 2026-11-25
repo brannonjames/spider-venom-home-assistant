@@ -19,7 +19,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Unable to fetch the Venom shadow with these settings.",
+      "cannot_connect": "Unable to connect to Spider Grills.",
+      "invalid_auth": "Invalid email or password.",
       "no_devices": "No supported Spider Grills devices were found on this account.",
       "unknown": "Unexpected error."
     },

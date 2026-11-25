@@ -9,7 +9,13 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, CONF_SCAN_INTERVAL
+from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .api import SpiderGrillsAccountClient, SpiderVenomApiError, SpiderVenomClient
 from .const import (
@@ -26,13 +32,31 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+ACCOUNT_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_EMAIL): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.EMAIL)
+        ),
+        vol.Required(CONF_PASSWORD): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Optional(
+            CONF_SCAN_INTERVAL,
+            default=int(DEFAULT_SCAN_INTERVAL.total_seconds()),
+        ): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
+    }
+)
+
 
 class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a Spider Grills Venom config flow."""
 
     VERSION = 1
-    _discovered_devices: dict[str, dict[str, Any]]
-    _scan_interval: int
+
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._discovered_devices: dict[str, dict[str, Any]] = {}
+        self._scan_interval: int = int(DEFAULT_SCAN_INTERVAL.total_seconds())
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -55,8 +79,11 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 devices = await account_client.async_get_devices(access_token)
             except SpiderVenomApiError as err:
-                _LOGGER.warning("Unable to discover Spider Venom devices: %s", err)
-                errors["base"] = "cannot_connect"
+                if _is_auth_error(err):
+                    errors["base"] = "invalid_auth"
+                else:
+                    _LOGGER.warning("Unable to discover Spider Venom devices: %s", err)
+                    errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Unexpected error discovering Spider Venom devices")
                 errors["base"] = "unknown"
@@ -72,18 +99,19 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 else:
                     return await self.async_step_select_device()
 
+        schema = ACCOUNT_SCHEMA
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(
+                ACCOUNT_SCHEMA,
+                {
+                    CONF_EMAIL: user_input[CONF_EMAIL],
+                    CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
+                },
+            )
+
         return self.async_show_form(
             step_id="account",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_EMAIL): str,
-                    vol.Required(CONF_PASSWORD): str,
-                    vol.Optional(
-                        CONF_SCAN_INTERVAL,
-                        default=int(DEFAULT_SCAN_INTERVAL.total_seconds()),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
-                }
-            ),
+            data_schema=schema,
             errors=errors,
         )
 
@@ -100,6 +128,8 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             thing_name = user_input[CONF_THING_NAME]
             device = self._discovered_devices[thing_name]
+            await self.async_set_unique_id(thing_name)
+            self._abort_if_unique_id_configured()
             try:
                 return await self._async_create_validated_entry(
                     thing_name=thing_name,
@@ -109,6 +139,8 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     scan_interval=self._scan_interval,
                     title=_device_label(device, thing_name),
                 )
+            except AbortFlow:
+                raise
             except SpiderVenomApiError as err:
                 _LOGGER.warning("Unable to validate Spider Venom config: %s", err)
                 errors["base"] = "cannot_connect"
@@ -141,8 +173,6 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             thing_name=thing_name,
         )
         await client.async_test_connection()
-        await self.async_set_unique_id(thing_name)
-        self._abort_if_unique_id_configured()
         return self.async_create_entry(
             title=title,
             data={
@@ -153,6 +183,11 @@ class SpiderVenomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_SCAN_INTERVAL: scan_interval,
             },
         )
+
+
+def _is_auth_error(err: SpiderVenomApiError) -> bool:
+    """Return true if the API error represents an authentication failure."""
+    return getattr(err, "status", None) in (401, 403) or "HTTP 401" in str(err) or "HTTP 403" in str(err)
 
 
 def _device_thing_name(device: dict[str, Any]) -> str | None:
