@@ -16,6 +16,8 @@ from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+type SpiderVenomConfigEntry = ConfigEntry[SpiderVenomDataUpdateCoordinator]
+
 
 class SpiderVenomDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinate Spider Grills Venom shadow polling."""
@@ -24,23 +26,28 @@ class SpiderVenomDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self,
         hass: HomeAssistant,
         client: SpiderVenomClient,
-        entry: ConfigEntry,
+        entry: SpiderVenomConfigEntry,
     ) -> None:
         """Initialize the coordinator."""
-        interval_seconds = entry.data.get(CONF_SCAN_INTERVAL)
+        interval_seconds = entry.options.get(
+            CONF_SCAN_INTERVAL,
+            entry.data.get(CONF_SCAN_INTERVAL),
+        )
         interval = (
             timedelta(seconds=interval_seconds)
             if isinstance(interval_seconds, int)
+            and not isinstance(interval_seconds, bool)
+            and interval_seconds >= 10
             else DEFAULT_SCAN_INTERVAL
         )
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=DOMAIN,
             update_interval=interval,
         )
         self.client = client
-        self.entry = entry
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from AWS IoT."""

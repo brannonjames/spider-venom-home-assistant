@@ -11,12 +11,10 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import SpiderVenomDataUpdateCoordinator
+from .coordinator import SpiderVenomConfigEntry, SpiderVenomDataUpdateCoordinator
 from .entity import SpiderVenomEntity, value_at_path
 
 
@@ -87,11 +85,11 @@ BINARY_SENSORS: tuple[SpiderVenomBinarySensorDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SpiderVenomConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Spider Grills Venom binary sensors."""
-    coordinator: SpiderVenomDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities(
         SpiderVenomBinarySensor(coordinator, entry, description)
         for description in BINARY_SENSORS
@@ -106,7 +104,7 @@ class SpiderVenomBinarySensor(SpiderVenomEntity, BinarySensorEntity):
     def __init__(
         self,
         coordinator: SpiderVenomDataUpdateCoordinator,
-        entry: ConfigEntry,
+        entry: SpiderVenomConfigEntry,
         description: SpiderVenomBinarySensorDescription,
     ) -> None:
         """Initialize the binary sensor."""

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from homeassistant.const import Platform
+
 DOMAIN = "spider_venom"
 
 CONF_ENDPOINT = "endpoint"
@@ -21,6 +23,11 @@ DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
 MIN_TARGET_TEMPERATURE = 150
 MAX_TARGET_TEMPERATURE = 550
 
-PLATFORMS = ["sensor", "binary_sensor", "number", "switch"]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.NUMBER,
+    Platform.SWITCH,
+]
 
 SERVICE_SET_TARGET_TEMPERATURE = "set_target_temperature"

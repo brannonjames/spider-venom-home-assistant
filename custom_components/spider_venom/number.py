@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from homeassistant.components.number import NumberEntity, NumberEntityDescription
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -16,11 +15,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import SpiderVenomApiError
 from .const import (
-    DOMAIN,
     MAX_TARGET_TEMPERATURE,
     MIN_TARGET_TEMPERATURE,
 )
-from .coordinator import SpiderVenomDataUpdateCoordinator
+from .coordinator import SpiderVenomConfigEntry, SpiderVenomDataUpdateCoordinator
 from .entity import SpiderVenomEntity, value_at_path
 
 
@@ -68,11 +66,11 @@ NUMBERS: tuple[SpiderVenomNumberDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: SpiderVenomConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Spider Grills Venom number entities."""
-    coordinator: SpiderVenomDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities(
         SpiderVenomTargetTemperatureNumber(coordinator, entry, description)
         for description in NUMBERS
@@ -88,7 +86,7 @@ class SpiderVenomTargetTemperatureNumber(SpiderVenomEntity, NumberEntity):
     def __init__(
         self,
         coordinator: SpiderVenomDataUpdateCoordinator,
-        entry: ConfigEntry,
+        entry: SpiderVenomConfigEntry,
         description: SpiderVenomNumberDescription,
     ) -> None:
         """Initialize the number entity."""
@@ -117,7 +115,9 @@ class SpiderVenomTargetTemperatureNumber(SpiderVenomEntity, NumberEntity):
         temperature = int(round(value))
         minimum = self.entity_description.native_min_value
         maximum = self.entity_description.native_max_value
-        if temperature < minimum or temperature > maximum:
+        if (minimum is not None and temperature < minimum) or (
+            maximum is not None and temperature > maximum
+        ):
             raise HomeAssistantError(
                 f"{self.entity_description.name} must be between "
                 f"{minimum:g} and {maximum:g} F"
