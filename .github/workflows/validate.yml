@@ -7,6 +7,9 @@ on:
     - cron: "0 0 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   hacs:
     name: HACS
@@ -25,3 +28,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Hassfest validation
         uses: home-assistant/actions/hassfest@master
+
+  test:
+    name: Lint and Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install test dependencies
+        run: pip install pytest-homeassistant-custom-component ruff
+      - name: Run ruff
+        run: ruff check custom_components tests
+      - name: Run pytest
+        run: pytest
